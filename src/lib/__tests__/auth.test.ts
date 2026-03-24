@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { SignJWT } from "jose";
+import { SignJWT, jwtVerify } from "jose";
 import { NextRequest } from "next/server";
 
 vi.mock("server-only", () => ({}));
@@ -50,6 +50,22 @@ describe("createSession", () => {
     const diff = options.expires.getTime() - Date.now();
     expect(diff).toBeGreaterThan(6 * 24 * 60 * 60 * 1000);
     expect(diff).toBeLessThanOrEqual(7 * 24 * 60 * 60 * 1000 + 1000);
+  });
+
+  test("JWT contains correct userId and email", async () => {
+    await createSession("user123", "hello@example.com");
+
+    const [, token] = mockSet.mock.calls[0];
+    const { payload } = await jwtVerify(token, SECRET);
+    expect(payload.userId).toBe("user123");
+    expect(payload.email).toBe("hello@example.com");
+  });
+
+  test("secure flag is false outside production", async () => {
+    await createSession("user1", "test@example.com");
+
+    const [, , options] = mockSet.mock.calls[0];
+    expect(options.secure).toBe(false);
   });
 });
 
